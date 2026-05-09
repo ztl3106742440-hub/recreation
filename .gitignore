@@ -1,0 +1,5 @@
+publish/
+.agents/
+.codex/
+.DS_Store
+*.zip

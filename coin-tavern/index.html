@@ -1,0 +1,1102 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>人头硬币</title>
+  <style>
+    :root {
+      --ink: #f8efe0;
+      --muted: #d7c0a2;
+      --panel: rgba(35, 22, 15, 0.88);
+      --panel-strong: rgba(23, 14, 10, 0.94);
+      --line: rgba(255, 223, 174, 0.24);
+      --gold: #f4c65a;
+      --gold-deep: #9d5f19;
+      --green: #82e99d;
+      --red: #ff847a;
+      --blue: #82c7ff;
+      --coin-time: 2s;
+      --ledger-main-size: clamp(0.86rem, 1.9vw, 1.02rem);
+      --ledger-sub-size: clamp(0.74rem, 1.55vw, 0.88rem);
+      font-family: ui-serif, "Songti SC", "Noto Serif CJK SC", Georgia, serif;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      min-height: 100%;
+      margin: 0;
+      background-color: #0b0605;
+      background:
+        radial-gradient(circle at 50% 16%, rgba(255, 199, 114, 0.2), transparent 24rem),
+        linear-gradient(180deg, #1d120d 0%, #110b08 100%);
+      background-color: #0b0605;
+      color: var(--ink);
+    }
+
+    body {
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    button {
+      font: inherit;
+    }
+
+    .game {
+      min-height: 100vh;
+      background: #0b0605;
+      display: grid;
+      grid-template-rows: minmax(390px, 58vh) minmax(280px, 1fr);
+      position: relative;
+    }
+
+    .stage {
+      position: relative;
+      display: grid;
+      place-items: center;
+      padding: 4.25rem 1rem 1rem;
+      overflow: hidden;
+      border-bottom: 1px solid rgba(255, 220, 160, 0.18);
+      box-shadow: inset 0 -5rem 7rem rgba(12, 7, 4, 0.58);
+    }
+
+    .stage::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background:
+        url("./背景.png") center / cover no-repeat,
+        linear-gradient(90deg, rgba(0, 0, 0, 0.08) 0 1px, transparent 1px 8.4%),
+        repeating-linear-gradient(91deg, rgba(255, 239, 201, 0.06) 0 2px, transparent 2px 16px),
+        radial-gradient(ellipse at center, rgba(162, 91, 37, 0.82), rgba(78, 38, 18, 0.92) 58%, rgba(26, 14, 9, 1) 100%),
+        linear-gradient(180deg, #5e3018, #2a150d);
+      filter: saturate(1.1);
+    }
+
+    .stage::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background:
+        radial-gradient(circle at 22% 18%, rgba(255, 214, 139, 0.2), transparent 9rem),
+        radial-gradient(circle at 80% 28%, rgba(124, 45, 19, 0.38), transparent 13rem),
+        linear-gradient(180deg, rgba(17, 10, 7, 0.3), rgba(17, 10, 7, 0.1) 44%, rgba(0, 0, 0, 0.48));
+      pointer-events: none;
+    }
+
+    /*
+      后续如果要换成真实酒馆桌面图：
+      1. 把图片放到同目录，例如 tavern-table.jpg
+      2. 在 .stage::before 的 background 最前面加：
+         url("./tavern-table.jpg") center / cover no-repeat,
+    */
+
+    .scorebar {
+      position: absolute;
+      z-index: 3;
+      top: 0.8rem;
+      left: 0.8rem;
+      right: 0.8rem;
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 0.8rem;
+      pointer-events: none;
+    }
+
+    .stats {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      max-width: min(68vw, 48rem);
+    }
+
+    .pill {
+      min-height: 2.2rem;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      padding: 0.4rem 0.66rem;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: rgba(26, 16, 11, 0.76);
+      box-shadow: 0 0.7rem 1.6rem rgba(0, 0, 0, 0.22);
+      color: var(--muted);
+      font-size: 0.92rem;
+      white-space: nowrap;
+      pointer-events: auto;
+    }
+
+    .pill strong {
+      color: var(--ink);
+      font-weight: 800;
+    }
+
+    .upgrade-shell {
+      pointer-events: auto;
+      width: min(21.5rem, calc(100vw - 1.6rem));
+      border: 1px solid var(--line);
+      border-radius: 0.5rem;
+      background: var(--panel);
+      backdrop-filter: blur(10px);
+      box-shadow: 0 1rem 2.6rem rgba(0, 0, 0, 0.34);
+      overflow: hidden;
+    }
+
+    .upgrade-toggle {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.8rem;
+      min-height: 2.75rem;
+      padding: 0.7rem 0.85rem;
+      color: var(--ink);
+      border: 0;
+      background: rgba(255, 217, 148, 0.08);
+      cursor: pointer;
+    }
+
+    .chevron {
+      width: 0.72rem;
+      height: 0.72rem;
+      border-right: 2px solid var(--muted);
+      border-bottom: 2px solid var(--muted);
+      transform: rotate(45deg) translateY(-2px);
+      transition: transform 160ms ease;
+    }
+
+    .upgrade-shell.is-collapsed .chevron {
+      transform: rotate(-45deg);
+    }
+
+    .upgrade-list {
+      display: grid;
+      gap: 0.52rem;
+      padding: 0.7rem;
+    }
+
+    .upgrade-shell.is-collapsed .upgrade-list {
+      display: none;
+    }
+
+    .upgrade {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 0.45rem 0.7rem;
+      align-items: center;
+      width: 100%;
+      min-height: 4.15rem;
+      padding: 0.7rem;
+      border: 1px solid rgba(255, 223, 174, 0.16);
+      border-radius: 0.45rem;
+      background: rgba(255, 241, 210, 0.055);
+    }
+
+    .upgrade-title {
+      color: var(--ink);
+      font-size: 0.95rem;
+      font-weight: 800;
+    }
+
+    .upgrade-meta {
+      color: var(--muted);
+      font-size: 0.8rem;
+      line-height: 1.35;
+    }
+
+    .buy {
+      min-width: 5.35rem;
+      min-height: 2.35rem;
+      border: 1px solid rgba(255, 220, 154, 0.38);
+      border-radius: 0.4rem;
+      background: linear-gradient(180deg, #f2cf72, #9c641f);
+      color: #241209;
+      font-weight: 900;
+      cursor: pointer;
+      box-shadow: inset 0 1px rgba(255, 255, 255, 0.38), 0 0.5rem 1rem rgba(0, 0, 0, 0.22);
+    }
+
+    .buy:disabled {
+      cursor: not-allowed;
+      filter: grayscale(0.75);
+      opacity: 0.52;
+      box-shadow: none;
+    }
+
+    .table-center {
+      position: relative;
+      z-index: 2;
+      display: grid;
+      justify-items: center;
+      gap: 1.15rem;
+      width: min(42rem, 100%);
+    }
+
+    .coin-wrap {
+      width: min(15rem, 46vw);
+      aspect-ratio: 1;
+      display: grid;
+      place-items: center;
+      perspective: 900px;
+      filter: drop-shadow(0 2.2rem 1.9rem rgba(0, 0, 0, 0.42));
+    }
+
+    .coin {
+      position: relative;
+      width: 100%;
+      aspect-ratio: 1;
+      transform-style: preserve-3d;
+      border-radius: 50%;
+    }
+
+    .coin.is-flipping {
+      animation: flip var(--coin-time) cubic-bezier(0.2, 0.78, 0.28, 1) both;
+    }
+
+    .coin.show-tail {
+      transform: rotateY(180deg);
+    }
+
+    .face {
+      position: absolute;
+      inset: 0;
+      display: grid;
+      place-items: center;
+      border-radius: 50%;
+      border: 0.7rem solid #6d4420;
+      backface-visibility: hidden;
+      box-shadow:
+        inset 0 0 0 0.28rem rgba(255, 240, 205, 0.18),
+        inset 0 -1rem 1.8rem rgba(0, 0, 0, 0.24),
+        0 0 1rem rgba(0, 0, 0, 0.18);
+      overflow: hidden;
+    }
+
+    .head {
+      background:
+        url("./正面.png") center / cover no-repeat,
+        url("./底板.png") center / cover no-repeat,
+        repeating-linear-gradient(
+          92deg,
+          rgba(117, 76, 45, 0.55) 0 8px,
+          rgba(88, 54, 31, 0.58) 8px 16px,
+          rgba(69, 41, 24, 0.55) 16px 24px
+        ),
+        radial-gradient(circle at 30% 22%, rgba(255, 255, 255, 0.12), transparent 12%),
+        radial-gradient(circle at 50% 50%, #6b4328 0 42%, #4b2c1a 70%, #2d1a10 100%);
+    }
+
+    .face::before {
+      content: "";
+      position: absolute;
+      inset: 17%;
+      border-radius: 50%;
+      border: 2px dashed rgba(94, 48, 11, 0.45);
+      display: none;
+    }
+
+    .face span {
+      position: relative;
+      z-index: 1;
+      display: none;
+      color: rgba(255, 235, 205, 0.78);
+      font-size: clamp(2.6rem, 8vw, 4.8rem);
+      font-weight: 900;
+      text-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
+    }
+
+    .head span {
+      color: #f3e0c2;
+      text-shadow: 0 1px 2px rgba(0, 0, 0, 0.45);
+    }
+
+    .tail {
+      transform: rotateY(180deg);
+      background:
+        url("./背面.png") center / cover no-repeat,
+        radial-gradient(circle at 30% 24%, rgba(255, 255, 255, 0.1), transparent 12%),
+        radial-gradient(circle at 50% 50%, rgba(120, 86, 49, 0.18) 0 42%, rgba(70, 44, 27, 0.12) 70%, rgba(28, 16, 10, 0.08) 100%);
+      backdrop-filter: blur(1px);
+    }
+
+    .flip-button {
+      min-width: min(17rem, 86vw);
+      min-height: 3.2rem;
+      border: 1px solid rgba(255, 231, 173, 0.46);
+      border-radius: 0.5rem;
+      color: #251305;
+      background: linear-gradient(180deg, #ffe698, #d3982e 60%, #7d4318);
+      font-weight: 900;
+      font-size: 1.08rem;
+      cursor: pointer;
+      box-shadow: inset 0 1px rgba(255, 255, 255, 0.52), 0 0.85rem 2.2rem rgba(0, 0, 0, 0.34);
+    }
+
+    .flip-button:disabled {
+      cursor: wait;
+      opacity: 0.82;
+    }
+
+    .toast {
+      min-height: 1.35rem;
+      color: var(--gold);
+      font-weight: 800;
+      text-align: center;
+      text-shadow: 0 1px 1px rgba(0, 0, 0, 0.55);
+    }
+
+    .log-panel {
+      position: relative;
+      z-index: 1;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(17rem, 24rem);
+      gap: 1rem;
+      padding: 1rem;
+      background:
+        linear-gradient(180deg, rgba(31, 17, 11, 0.92), rgba(14, 9, 7, 0.98)),
+        radial-gradient(circle at 18% 20%, rgba(255, 190, 91, 0.12), transparent 22rem);
+    }
+
+    .results {
+      min-height: 17rem;
+      max-height: 34vh;
+      overflow: auto;
+      border: 1px solid var(--line);
+      border-radius: 0.5rem;
+      background: rgba(14, 9, 7, 0.72);
+      padding: 0.85rem;
+      box-shadow: inset 0 0 1.8rem rgba(0, 0, 0, 0.25);
+    }
+
+    .result-line {
+      display: grid;
+      gap: 0.28rem;
+      padding: 0.62rem 0.7rem;
+      border-bottom: 1px solid rgba(255, 223, 174, 0.12);
+      animation: rise 180ms ease both;
+    }
+
+    .result-line.head {
+      border: 1px solid rgba(255, 223, 174, 0.18);
+      border-radius: 0.45rem;
+      background:
+        linear-gradient(90deg, rgba(13, 7, 4, 0.74), rgba(13, 7, 4, 0.58)),
+        url("./底板.png") center / cover no-repeat;
+      box-shadow: inset 0 0 1rem rgba(0, 0, 0, 0.34);
+    }
+
+    .result-line.tail {
+      background: rgba(18, 10, 7, 0.38);
+    }
+
+    .result-line:last-child {
+      border-bottom: 0;
+    }
+
+    .result-main {
+      width: fit-content;
+      font-size: var(--ledger-main-size);
+      font-weight: 900;
+    }
+
+    .result-sub {
+      color: var(--muted);
+      font-size: var(--ledger-sub-size);
+      line-height: 1.5;
+    }
+
+    .result-sub:empty {
+      display: none;
+    }
+
+    .result-quip {
+      color: rgba(255, 231, 176, 0.78);
+      font-style: italic;
+    }
+
+    .result-line.head .result-main {
+      color: var(--green);
+      text-shadow: 0 1px 2px rgba(0, 0, 0, 0.7);
+    }
+
+    .result-line.tail .result-main {
+      color: var(--red);
+    }
+
+    .side-panel {
+      display: grid;
+      gap: 0.75rem;
+      align-content: start;
+    }
+
+    .meter-card,
+    .note-card {
+      border: 1px solid var(--line);
+      border-radius: 0.5rem;
+      background: var(--panel-strong);
+      padding: 0.85rem;
+    }
+
+    .meter-title {
+      display: flex;
+      justify-content: space-between;
+      gap: 0.8rem;
+      color: var(--muted);
+      font-size: 0.92rem;
+      margin-bottom: 0.55rem;
+    }
+
+    .meter {
+      height: 0.68rem;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.08);
+      overflow: hidden;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    .meter-fill {
+      width: 0%;
+      height: 100%;
+      border-radius: inherit;
+      background: linear-gradient(90deg, var(--green), var(--blue), var(--gold));
+      transition: width 180ms ease;
+    }
+
+    .note-card {
+      color: var(--muted);
+      line-height: 1.55;
+      font-size: 0.92rem;
+    }
+
+    .reset {
+      min-height: 2.45rem;
+      border: 1px solid rgba(255, 132, 122, 0.34);
+      border-radius: 0.4rem;
+      background: rgba(255, 132, 122, 0.12);
+      color: #ffd0ca;
+      cursor: pointer;
+    }
+
+    .win-modal {
+      position: fixed;
+      inset: 0;
+      z-index: 10;
+      display: none;
+      place-items: center;
+      padding: 1rem;
+      background: rgba(7, 4, 3, 0.78);
+    }
+
+    .win-modal.is-open {
+      display: grid;
+    }
+
+    .win-card {
+      width: min(28rem, 100%);
+      border: 1px solid rgba(255, 220, 154, 0.34);
+      border-radius: 0.7rem;
+      background:
+        radial-gradient(circle at top, rgba(255, 216, 133, 0.16), transparent 13rem),
+        #21130d;
+      padding: 1.1rem;
+      text-align: center;
+      box-shadow: 0 1.5rem 4rem rgba(0, 0, 0, 0.5);
+    }
+
+    .win-card h1 {
+      margin: 0 0 0.6rem;
+      color: var(--gold);
+      font-size: clamp(1.8rem, 8vw, 3rem);
+      letter-spacing: 0;
+    }
+
+    .win-card p {
+      margin: 0.35rem 0 1rem;
+      color: var(--muted);
+    }
+
+    .modal-actions {
+      display: flex;
+      gap: 0.65rem;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+
+    .modal-actions button {
+      min-height: 2.6rem;
+      min-width: 8rem;
+      border-radius: 0.45rem;
+      cursor: pointer;
+    }
+
+    .keep {
+      border: 1px solid rgba(255, 231, 173, 0.42);
+      background: linear-gradient(180deg, #ffe698, #ac7121);
+      color: #251305;
+      font-weight: 900;
+    }
+
+    .new-run {
+      border: 1px solid var(--line);
+      background: rgba(255, 255, 255, 0.07);
+      color: var(--ink);
+    }
+
+    @keyframes flip {
+      0% {
+        transform: rotateY(0deg) translateY(0) scale(1);
+      }
+      45% {
+        transform: rotateY(900deg) translateY(-5.2rem) scale(1.08);
+      }
+      100% {
+        transform: rotateY(var(--end-rotation, 0deg)) translateY(0) scale(1);
+      }
+    }
+
+    @keyframes rise {
+      from {
+        opacity: 0;
+        transform: translateY(0.35rem);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    @media (max-width: 860px) {
+      .game {
+        grid-template-rows: minmax(440px, 57vh) auto;
+      }
+
+      .scorebar {
+        position: absolute;
+        display: grid;
+        grid-template-columns: 1fr;
+      }
+
+      .stats {
+        max-width: 100%;
+        padding-right: 3.2rem;
+      }
+
+      .upgrade-shell {
+        justify-self: end;
+      }
+
+      .upgrade-shell.is-collapsed {
+        width: 9.6rem;
+      }
+
+      .log-panel {
+        grid-template-columns: 1fr;
+      }
+
+      .results {
+        max-height: none;
+      }
+    }
+
+    @media (max-width: 520px) {
+      .stage {
+        padding-top: 7.3rem;
+      }
+
+      .pill {
+        font-size: 0.82rem;
+        min-height: 2rem;
+      }
+
+      .upgrade-shell:not(.is-collapsed) {
+        width: 100%;
+      }
+
+      .upgrade {
+        grid-template-columns: 1fr;
+      }
+
+      .buy {
+        width: 100%;
+      }
+
+      .coin-wrap {
+        width: min(13rem, 64vw);
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="game">
+    <section class="stage" aria-label="抛硬币画面">
+      <div class="scorebar">
+        <div class="stats" aria-live="polite">
+          <div class="pill">美元 <strong id="money">$0.00</strong></div>
+          <div class="pill">正面 <strong id="headsChance">20%</strong></div>
+          <div class="pill">基础奖励 <strong id="baseReward">$0.01</strong></div>
+          <div class="pill">连续 <strong id="streak">0/10</strong></div>
+        </div>
+
+        <aside class="upgrade-shell is-collapsed" id="upgradeShell">
+          <button class="upgrade-toggle" id="upgradeToggle" type="button" aria-expanded="false">
+            <span>升级</span>
+            <span class="chevron" aria-hidden="true"></span>
+          </button>
+          <div class="upgrade-list" id="upgradeList"></div>
+        </aside>
+      </div>
+
+      <div class="table-center">
+        <div class="coin-wrap" aria-hidden="true">
+          <div class="coin" id="coin">
+            <div class="face head"><span>人</span></div>
+            <div class="face tail"><span>尾</span></div>
+          </div>
+        </div>
+        <button class="flip-button" id="flipButton" type="button">抛硬币</button>
+        <div class="toast" id="toast" aria-live="polite"></div>
+      </div>
+    </section>
+
+    <section class="log-panel">
+      <div class="results" id="results" aria-live="polite"></div>
+      <aside class="side-panel">
+        <div class="meter-card">
+          <div class="meter-title">
+            <span>通关进度</span>
+            <strong id="progressText">0%</strong>
+          </div>
+          <div class="meter">
+            <div class="meter-fill" id="meterFill"></div>
+          </div>
+        </div>
+        <div class="note-card">
+          <strong>目标：</strong>连续 10 次人头。<br>
+          <strong>奖励：</strong>连续第 n 次人头获得 2^(n-1) x 基础奖励。
+        </div>
+        <button class="reset" id="resetButton" type="button">重置存档</button>
+      </aside>
+    </section>
+  </main>
+
+  <div class="win-modal" id="winModal" role="dialog" aria-modal="true" aria-labelledby="winTitle">
+    <div class="win-card">
+      <h1 id="winTitle">通关</h1>
+      <p id="winDetail">连续 10 次人头。</p>
+      <div class="modal-actions">
+        <button class="keep" id="keepPlaying" type="button">继续玩</button>
+        <button class="new-run" id="newRun" type="button">重新开始</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const STORAGE_KEY = "coin-tavern-save-v1";
+    const WIN_STREAK = 10;
+    const MAX_HEADS_CHANCE = 0.95;
+    const MIN_ANIMATION_TIME = 0.4;
+
+    const upgrades = [
+      {
+        id: "chance",
+        name: "正面概率",
+        effectText: "每级 +5%",
+        applyLabel: (level) => `+${level * 5}%`
+      },
+      {
+        id: "base",
+        name: "基础奖励",
+        effectText: "第 n 次升级 x(5n)",
+        applyLabel: (level) => `当前 x${formatMultiplier(getBaseMultiplier(level))} | 下次 x${5 * (level + 1)}`
+      },
+      {
+        id: "streakChance",
+        name: "连正概率",
+        effectText: "连续中每级 +2%",
+        applyLabel: (level) => `+${level * 2}%`
+      },
+      {
+        id: "speed",
+        name: "动画时间",
+        effectText: "每级 -0.2s",
+        applyLabel: (level) => `-${(level * 0.2).toFixed(1)}s`
+      }
+    ];
+
+    const defaultState = {
+      money: 0,
+      baseReward: 0.01,
+      streak: 0,
+      tailStreak: 0,
+      bestStreak: 0,
+      flips: 0,
+      heads: 0,
+      wins: 0,
+      upgrades: {
+        chance: 0,
+        base: 0,
+        streakChance: 0,
+        speed: 0
+      },
+      log: []
+    };
+
+    let state = loadState();
+    let flipping = false;
+
+    const headQuips = [
+      "酒保眯眼：这枚币开始认主了。",
+      "桌边有人低声说：别眨眼，财神会害羞。",
+      "黄铜在发烫，像刚偷喝了一口好运。",
+      "这不是概率，这是酒馆里的小型传说。",
+      "旁观者停止吹牛，开始认真数你的感叹号。"
+    ];
+
+    const tailQuips = [
+      "酒保擦杯子：桌子收走了一点嚣张。",
+      "硬币冷笑一声，决定当反派。",
+      "这枚尾巴落得很有职业道德。",
+      "下注记录上多了一笔：勇气，被木桌吞没。",
+      "别急，酒馆的好运喜欢绕远路。"
+    ];
+
+    const longHeadQuips = [
+      "连续正面，空气里已经有铜锈味的掌声。",
+      "这条连胜像一根点燃的火柴，别让它见风。",
+      "桌角的影子都在押你赢。",
+      "酒馆老板开始怀疑你认识硬币的亲戚。"
+    ];
+
+    const longTailQuips = [
+      "连续尾巴，连椅子都替你坐不住了。",
+      "这不是失败，这是硬币在写悲剧序章。",
+      "尾巴连庄，酒馆里突然安静了。",
+      "木桌说：再投一次，我可能会心软。"
+    ];
+
+    function cloneDefaultState() {
+      if (typeof structuredClone === "function") {
+        return structuredClone(defaultState);
+      }
+      return JSON.parse(JSON.stringify(defaultState));
+    }
+
+    const els = {
+      money: document.getElementById("money"),
+      headsChance: document.getElementById("headsChance"),
+      baseReward: document.getElementById("baseReward"),
+      streak: document.getElementById("streak"),
+      coin: document.getElementById("coin"),
+      flipButton: document.getElementById("flipButton"),
+      toast: document.getElementById("toast"),
+      results: document.getElementById("results"),
+      upgradeShell: document.getElementById("upgradeShell"),
+      upgradeToggle: document.getElementById("upgradeToggle"),
+      upgradeList: document.getElementById("upgradeList"),
+      resetButton: document.getElementById("resetButton"),
+      progressText: document.getElementById("progressText"),
+      meterFill: document.getElementById("meterFill"),
+      winModal: document.getElementById("winModal"),
+      winDetail: document.getElementById("winDetail"),
+      keepPlaying: document.getElementById("keepPlaying"),
+      newRun: document.getElementById("newRun")
+    };
+
+    function loadState() {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (!raw) return cloneDefaultState();
+        const parsed = JSON.parse(raw);
+        return {
+          ...cloneDefaultState(),
+          ...parsed,
+          upgrades: {
+            ...defaultState.upgrades,
+            ...(parsed.upgrades || {})
+          },
+          tailStreak: Number.isFinite(parsed.tailStreak) ? parsed.tailStreak : 0,
+          log: Array.isArray(parsed.log) ? parsed.log.slice(0, 40) : []
+        };
+      } catch {
+        return cloneDefaultState();
+      }
+    }
+
+    function saveState() {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    }
+
+    function formatMoney(value) {
+      if (value >= 1000000) return `$${value.toExponential(2)}`;
+      if (value >= 1000) return `$${value.toLocaleString(undefined, { maximumFractionDigits: 2 })}`;
+      return `$${value.toFixed(2)}`;
+    }
+
+    function formatReward(value) {
+      if (value < 0.01) return `$${value.toFixed(4)}`;
+      if (value < 1000) return `$${value.toFixed(2)}`;
+      return formatMoney(value);
+    }
+
+    function upgradeCost(level) {
+      return 0.1 * Math.pow(10, level);
+    }
+
+    function getBaseMultiplier(level) {
+      let multiplier = 1;
+      for (let i = 1; i <= level; i += 1) {
+        multiplier *= i * 5;
+      }
+      return multiplier;
+    }
+
+    function formatMultiplier(value) {
+      if (value >= 1000000) return value.toExponential(2);
+      return value.toLocaleString(undefined, { maximumFractionDigits: 0 });
+    }
+
+    function getAnimationTime() {
+      return Math.max(MIN_ANIMATION_TIME, 2 - state.upgrades.speed * 0.2);
+    }
+
+    function getHeadsChance() {
+      return Math.min(MAX_HEADS_CHANCE, 0.2 + state.upgrades.chance * 0.05);
+    }
+
+    function getCurrentHeadsChance() {
+      const streakBonus = state.streak > 0 ? state.upgrades.streakChance * 0.02 : 0;
+      return Math.min(MAX_HEADS_CHANCE, getHeadsChance() + streakBonus);
+    }
+
+    function getBaseReward() {
+      return 0.01 * getBaseMultiplier(state.upgrades.base);
+    }
+
+    function getHeadText(streak) {
+      return `人头${"!".repeat(Math.max(1, streak))}`;
+    }
+
+    function pickQuip(type, count) {
+      if (Math.random() >= 0.28) return "";
+
+      const pool = type === "head"
+        ? (count >= 3 ? longHeadQuips : headQuips)
+        : (count >= 3 ? longTailQuips : tailQuips);
+
+      return pool[Math.floor(Math.random() * pool.length)];
+    }
+
+    function render() {
+      const chance = getCurrentHeadsChance();
+      const baseReward = getBaseReward();
+      state.baseReward = baseReward;
+
+      document.documentElement.style.setProperty("--coin-time", `${getAnimationTime()}s`);
+      els.money.textContent = formatMoney(state.money);
+      els.headsChance.textContent = `${Math.round(chance * 100)}%`;
+      els.baseReward.textContent = formatReward(baseReward);
+      els.streak.textContent = `${state.streak}/${WIN_STREAK}`;
+
+      const progress = Math.min(100, Math.round((state.streak / WIN_STREAK) * 100));
+      els.progressText.textContent = `${progress}%`;
+      els.meterFill.style.width = `${progress}%`;
+
+      renderUpgrades();
+      renderLog();
+      saveState();
+    }
+
+    function renderUpgrades() {
+      els.upgradeList.innerHTML = "";
+      for (const item of upgrades) {
+        const level = state.upgrades[item.id];
+        const cost = upgradeCost(level);
+        const row = document.createElement("div");
+        row.className = "upgrade";
+
+        const text = document.createElement("div");
+        const title = document.createElement("div");
+        title.className = "upgrade-title";
+        title.textContent = item.name;
+
+        const meta = document.createElement("div");
+        meta.className = "upgrade-meta";
+        meta.textContent = `Lv.${level} | ${item.effectText} | 当前 ${item.applyLabel(level)}`;
+
+        text.append(title, meta);
+
+        const button = document.createElement("button");
+        button.className = "buy";
+        button.type = "button";
+        button.textContent = formatMoney(cost);
+        button.disabled = state.money + 1e-9 < cost;
+        button.addEventListener("click", () => buyUpgrade(item.id));
+
+        row.append(text, button);
+        els.upgradeList.append(row);
+      }
+    }
+
+    function renderLog() {
+      els.results.innerHTML = "";
+      if (state.log.length === 0) {
+        const empty = document.createElement("div");
+        empty.className = "result-line";
+        empty.innerHTML = '<div class="result-main" style="color: var(--muted)">酒馆桌上还没响起硬币声。</div>';
+        els.results.append(empty);
+        return;
+      }
+
+      for (const entry of state.log) {
+        const row = document.createElement("div");
+        row.className = `result-line ${entry.type}`;
+
+        const main = document.createElement("div");
+        main.className = "result-main";
+        main.textContent = entry.text;
+
+        const sub = document.createElement("div");
+        sub.className = "result-sub";
+        if (entry.quip) {
+          const detail = document.createElement("span");
+          detail.textContent = entry.detail ? `${entry.detail} ` : "";
+
+          const quip = document.createElement("span");
+          quip.className = "result-quip";
+          quip.textContent = `｜${entry.quip}`;
+
+          sub.append(detail, quip);
+        } else {
+          sub.textContent = entry.detail || "";
+        }
+
+        row.append(main, sub);
+        els.results.append(row);
+      }
+    }
+
+    function buyUpgrade(id) {
+      const level = state.upgrades[id];
+      const cost = upgradeCost(level);
+      if (state.money + 1e-9 < cost) return;
+
+      state.money -= cost;
+      state.upgrades[id] += 1;
+      if (id === "base") state.baseReward = getBaseReward();
+      flash(`升级：${upgrades.find((item) => item.id === id).name}`);
+      render();
+    }
+
+    function addLog(entry) {
+      state.log.unshift(entry);
+      state.log = state.log.slice(0, 40);
+    }
+
+    function flash(text) {
+      els.toast.textContent = text;
+      window.clearTimeout(flash.timer);
+      flash.timer = window.setTimeout(() => {
+        els.toast.textContent = "";
+      }, 1400);
+    }
+
+    function flipCoin() {
+      if (flipping) return;
+      flipping = true;
+      els.flipButton.disabled = true;
+      els.flipButton.textContent = "硬币飞着呢";
+      els.coin.classList.remove("is-flipping");
+
+      const chance = getCurrentHeadsChance();
+      const isHead = Math.random() < chance;
+      const endRotation = isHead ? "0deg" : "180deg";
+      els.coin.style.setProperty("--end-rotation", endRotation);
+
+      requestAnimationFrame(() => {
+        els.coin.classList.toggle("show-tail", !isHead);
+        els.coin.classList.add("is-flipping");
+      });
+
+      window.setTimeout(() => {
+        resolveFlip(isHead, chance);
+      }, getAnimationTime() * 1000);
+    }
+
+    function resolveFlip(isHead, chance) {
+      state.flips += 1;
+
+      if (isHead) {
+        state.heads += 1;
+        state.streak += 1;
+        state.tailStreak = 0;
+        state.bestStreak = Math.max(state.bestStreak, state.streak);
+
+        const reward = getBaseReward() * Math.pow(2, state.streak - 1);
+        state.money += reward;
+
+        const text = getHeadText(state.streak);
+        addLog({
+          type: "head",
+          text,
+          detail: `连续${state.streak}次人头，获得 ${formatReward(reward)}`,
+          quip: pickQuip("head", state.streak)
+        });
+        flash(`+${formatReward(reward)}`);
+
+        if (state.streak >= WIN_STREAK) {
+          state.wins += 1;
+          els.winDetail.textContent = `第 ${state.flips} 次抛掷达成连续 ${WIN_STREAK} 次人头。`;
+          els.winModal.classList.add("is-open");
+        }
+      } else {
+        state.tailStreak = (state.tailStreak || 0) + 1;
+        addLog({
+          type: "tail",
+          text: "尾巴",
+          detail: "运气断了。",
+          quip: pickQuip("tail", state.tailStreak)
+        });
+        state.streak = 0;
+        flash("尾巴");
+      }
+
+      flipping = false;
+      els.flipButton.disabled = false;
+      els.flipButton.textContent = "抛硬币";
+      render();
+    }
+
+    function resetGame() {
+      state = cloneDefaultState();
+      els.coin.classList.remove("is-flipping", "show-tail");
+      els.winModal.classList.remove("is-open");
+      render();
+    }
+
+    els.flipButton.addEventListener("click", flipCoin);
+
+    els.upgradeToggle.addEventListener("click", () => {
+      const collapsed = els.upgradeShell.classList.toggle("is-collapsed");
+      els.upgradeToggle.setAttribute("aria-expanded", String(!collapsed));
+    });
+
+    els.resetButton.addEventListener("click", () => {
+      if (confirm("确定重置存档？")) resetGame();
+    });
+
+    els.keepPlaying.addEventListener("click", () => {
+      els.winModal.classList.remove("is-open");
+    });
+
+    els.newRun.addEventListener("click", resetGame);
+
+    render();
+  </script>
+</body>
+</html>
